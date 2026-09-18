@@ -1,0 +1,6 @@
+{
+  "name": "SwitchMe!",
+  "description": "Two Directions. One Way Forward. A minimalist neon puzzle platformer where Red only moves right and Blue only moves left.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

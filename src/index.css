@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+}
+
+.font-display {
+  font-family: 'Chakra Petch', system-ui, sans-serif;
+}
+
+/* Custom Neon Glow Utilities */
+.neon-glow-red {
+  box-shadow: 0 0 15px rgba(255, 51, 102, 0.45), 0 0 30px rgba(255, 51, 102, 0.2);
+}
+
+.neon-glow-blue {
+  box-shadow: 0 0 15px rgba(0, 212, 255, 0.45), 0 0 30px rgba(0, 212, 255, 0.2);
+}
+
+.neon-glow-portal {
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.5), 0 0 40px rgba(0, 212, 255, 0.3), 0 0 60px rgba(255, 51, 102, 0.3);
+}
+
+/* Canvas crisp rendering */
+canvas {
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+}
