@@ -1,19 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, ArrowRight, ArrowUp, RotateCcw, Lock } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowUp, Lock } from 'lucide-react';
 import { PlayerColor } from '../types';
 
 interface TouchControlsProps {
   currentColor: PlayerColor;
   onDirectionChange: (left: boolean, right: boolean) => void;
   onJumpPress: (pressed: boolean) => void;
-  onReset: () => void;
 }
 
 export const TouchControls: React.FC<TouchControlsProps> = ({
   currentColor,
   onDirectionChange,
   onJumpPress,
-  onReset,
 }) => {
   const isRed = currentColor === 'RED';
   const [isMovePressed, setIsMovePressed] = useState(false);
@@ -21,10 +19,11 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
   const [isSwitchTransitioning, setIsSwitchTransitioning] = useState(false);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
 
-  // Active touch ID refs for independent multi-touch tracking (thumb 1 = move, thumb 2 = jump)
+  // Independent multi-touch identifiers (thumb 1 = move, thumb 2 = jump)
   const moveTouchIdRef = useRef<number | null>(null);
   const jumpTouchIdRef = useRef<number | null>(null);
-  const moveButtonRef = useRef<HTMLDivElement | null>(null);
+  const moveClusterRef = useRef<HTMLDivElement | null>(null);
+  const jumpButtonRef = useRef<HTMLDivElement | null>(null);
   const lastColorRef = useRef<PlayerColor>(currentColor);
 
   // Detect touch device or mobile/tablet screen size
@@ -39,18 +38,18 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
     return () => window.removeEventListener('resize', checkTouch);
   }, []);
 
-  // Trigger switch pulse animation whenever player color changes (RED <-> BLUE)
+  // Trigger brief pulse animation whenever player color changes (RED <-> BLUE)
   useEffect(() => {
     if (lastColorRef.current !== currentColor) {
       lastColorRef.current = currentColor;
       setIsSwitchTransitioning(true);
-      // If player was holding movement across color switch, reset input so they don't move in wrong direction
+      // Cancel lingering movement so player doesn't move in old direction
       if (moveTouchIdRef.current !== null) {
         moveTouchIdRef.current = null;
         setIsMovePressed(false);
         onDirectionChange(false, false);
       }
-      const timer = setTimeout(() => setIsSwitchTransitioning(false), 360);
+      const timer = setTimeout(() => setIsSwitchTransitioning(false), 320);
       return () => clearTimeout(timer);
     }
   }, [currentColor, onDirectionChange]);
@@ -65,16 +64,17 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
     moveTouchIdRef.current = touch.identifier;
     setIsMovePressed(true);
 
+    // Apply directional restriction: RED moves Right, BLUE moves Left
     if (isRed) {
-      onDirectionChange(false, true); // Move Right
+      onDirectionChange(false, true);
     } else {
-      onDirectionChange(true, false); // Move Left
+      onDirectionChange(true, false);
     }
   };
 
-  // Handle Movement Touch Move (with 35px generous deadzone so thumb doesn't drop input accidentally)
+  // Handle Movement Touch Move (with 35px generous deadzone around cluster)
   const handleMoveTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (moveTouchIdRef.current === null || !moveButtonRef.current) return;
+    if (moveTouchIdRef.current === null || !moveClusterRef.current) return;
     let touch: React.Touch | null = null;
     for (let i = 0; i < e.changedTouches.length; i++) {
       if (e.changedTouches[i].identifier === moveTouchIdRef.current) {
@@ -84,15 +84,15 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
     }
     if (!touch) return;
 
-    const rect = moveButtonRef.current.getBoundingClientRect();
+    const rect = moveClusterRef.current.getBoundingClientRect();
     const DEADZONE = 35;
-    const isInsideWithDeadzone =
+    const isInside =
       touch.clientX >= rect.left - DEADZONE &&
       touch.clientX <= rect.right + DEADZONE &&
       touch.clientY >= rect.top - DEADZONE &&
       touch.clientY <= rect.bottom + DEADZONE;
 
-    if (!isInsideWithDeadzone) {
+    if (!isInside) {
       moveTouchIdRef.current = null;
       setIsMovePressed(false);
       onDirectionChange(false, false);
@@ -117,7 +117,7 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
   };
 
   // Handle Jump Touch Start
-  const handleJumpTouchStart = (e: React.TouchEvent<HTMLButtonElement>) => {
+  const handleJumpTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
     if (e.changedTouches.length === 0) return;
@@ -129,7 +129,7 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
   };
 
   // Handle Jump Touch End / Cancel
-  const handleJumpTouchEnd = (e: React.TouchEvent<HTMLButtonElement>) => {
+  const handleJumpTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
     if (jumpTouchIdRef.current === null) return;
     let touchEnded = false;
     for (let i = 0; i < e.changedTouches.length; i++) {
@@ -145,7 +145,6 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
     }
   };
 
-  // If desktop non-touch screen and wide resolution, hide touch controls to keep desktop clean
   if (!isTouchDevice) {
     return null;
   }
@@ -153,12 +152,16 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
   return (
     <div
       id="touch-controls-container"
-      className="fixed inset-x-0 bottom-0 z-40 p-4 pb-safe pl-safe pr-safe flex items-end justify-between pointer-events-none select-none touch-none transition-opacity duration-200"
-      style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom, 0px))' }}
+      className="fixed inset-x-0 bottom-0 z-40 p-3 sm:p-5 flex items-end justify-between pointer-events-none select-none touch-none"
+      style={{
+        paddingBottom: 'max(14px, env(safe-area-inset-bottom, 0px))',
+        paddingLeft: 'max(14px, env(safe-area-inset-left, 0px))',
+        paddingRight: 'max(14px, env(safe-area-inset-right, 0px))',
+      }}
     >
-      {/* BOTTOM LEFT: Direction-Aware Movement Controller */}
+      {/* BOTTOM LEFT: Compact Integrated Movement Controller */}
       <div
-        ref={moveButtonRef}
+        ref={moveClusterRef}
         id="touch-move-cluster"
         onTouchStart={handleMoveTouchStart}
         onTouchMove={handleMoveTouchMove}
@@ -176,112 +179,103 @@ export const TouchControls: React.FC<TouchControlsProps> = ({
           setIsMovePressed(false);
           onDirectionChange(false, false);
         }}
-        className={`pointer-events-auto flex items-center p-1.5 rounded-2xl border backdrop-blur-xl bg-[#090b14]/85 shadow-2xl transition-all duration-300 ${
+        className={`pointer-events-auto flex items-center p-1 rounded-2xl border backdrop-blur-xl bg-[#090b14]/90 shadow-2xl transition-all duration-300 ${
           isSwitchTransitioning ? 'scale-105 ring-2 ring-white/40' : ''
         } ${
           isRed
-            ? 'border-rose-500/40 shadow-rose-950/40'
-            : 'border-cyan-500/40 shadow-cyan-950/40'
+            ? 'border-rose-500/40 shadow-[0_0_15px_rgba(255,51,102,0.2)]'
+            : 'border-cyan-500/40 shadow-[0_0_15px_rgba(0,212,255,0.2)]'
         }`}
       >
         {/* LEFT BUTTON (Active ONLY when Blue) */}
         <div
           id="touch-btn-left"
-          className={`relative w-18 h-18 sm:w-20 sm:h-20 rounded-xl flex flex-col items-center justify-center transition-all duration-200 cursor-pointer ${
+          className={`relative w-15 h-14 sm:w-17 sm:h-15 rounded-xl flex flex-col items-center justify-center transition-all duration-150 cursor-pointer ${
             !isRed
               ? isMovePressed
-                ? 'bg-cyan-500/40 border-2 border-cyan-300 text-cyan-100 scale-95 shadow-[0_0_25px_rgba(0,212,255,0.6)]'
-                : 'bg-cyan-500/20 border border-cyan-400/80 text-cyan-300 shadow-[0_0_15px_rgba(0,212,255,0.3)] animate-pulse'
-              : 'bg-white/[0.02] border border-white/5 text-neutral-600 opacity-30 cursor-not-allowed pointer-events-none'
+                ? 'bg-cyan-500/40 border-2 border-cyan-300 text-cyan-100 scale-95 shadow-[0_0_20px_rgba(0,212,255,0.6)]'
+                : 'bg-cyan-500/20 border border-cyan-400/80 text-cyan-300 shadow-[0_0_12px_rgba(0,212,255,0.3)] animate-pulse'
+              : 'bg-white/[0.02] border border-white/5 text-neutral-600 opacity-20 cursor-not-allowed pointer-events-none'
           }`}
           aria-label={!isRed ? 'Move Left (Blue)' : 'Left Locked'}
         >
-          <ArrowLeft className={`w-7 h-7 sm:w-8 sm:h-8 transition-transform ${!isRed && isMovePressed ? '-translate-x-1' : ''}`} />
-          <span className="text-[10px] font-mono font-black tracking-widest mt-0.5">
-            {!isRed ? 'LEFT' : 'LOCKED'}
+          <ArrowLeft className={`w-5 h-5 sm:w-6 sm:h-6 transition-transform ${!isRed && isMovePressed ? '-translate-x-1' : ''}`} />
+          <span className="text-[9px] font-mono font-bold tracking-wider mt-0.5">
+            {!isRed ? 'LEFT' : 'LOCK'}
           </span>
           {isRed && (
-            <div className="absolute top-1.5 right-1.5 opacity-60">
-              <Lock className="w-3 h-3 text-neutral-500" />
+            <div className="absolute top-1 right-1 opacity-50">
+              <Lock className="w-2.5 h-2.5 text-neutral-500" />
             </div>
           )}
         </div>
 
-        {/* Dividing Neon Spine */}
+        {/* Divider Bar */}
         <div
-          className={`w-px h-10 mx-1.5 transition-colors duration-300 ${
-            isRed ? 'bg-rose-500/40' : 'bg-cyan-500/40'
+          className={`w-px h-8 mx-1 transition-colors duration-300 ${
+            isRed ? 'bg-rose-500/30' : 'bg-cyan-500/30'
           }`}
         />
 
         {/* RIGHT BUTTON (Active ONLY when Red) */}
         <div
           id="touch-btn-right"
-          className={`relative w-18 h-18 sm:w-20 sm:h-20 rounded-xl flex flex-col items-center justify-center transition-all duration-200 cursor-pointer ${
+          className={`relative w-15 h-14 sm:w-17 sm:h-15 rounded-xl flex flex-col items-center justify-center transition-all duration-150 cursor-pointer ${
             isRed
               ? isMovePressed
-                ? 'bg-rose-500/40 border-2 border-rose-300 text-rose-100 scale-95 shadow-[0_0_25px_rgba(255,51,102,0.6)]'
-                : 'bg-rose-500/20 border border-rose-400/80 text-rose-300 shadow-[0_0_15px_rgba(255,51,102,0.3)] animate-pulse'
-              : 'bg-white/[0.02] border border-white/5 text-neutral-600 opacity-30 cursor-not-allowed pointer-events-none'
+                ? 'bg-rose-500/40 border-2 border-rose-300 text-rose-100 scale-95 shadow-[0_0_20px_rgba(255,51,102,0.6)]'
+                : 'bg-rose-500/20 border border-rose-400/80 text-rose-300 shadow-[0_0_12px_rgba(255,51,102,0.3)] animate-pulse'
+              : 'bg-white/[0.02] border border-white/5 text-neutral-600 opacity-20 cursor-not-allowed pointer-events-none'
           }`}
           aria-label={isRed ? 'Move Right (Red)' : 'Right Locked'}
         >
-          <ArrowRight className={`w-7 h-7 sm:w-8 sm:h-8 transition-transform ${isRed && isMovePressed ? 'translate-x-1' : ''}`} />
-          <span className="text-[10px] font-mono font-black tracking-widest mt-0.5">
-            {isRed ? 'RIGHT' : 'LOCKED'}
+          <ArrowRight className={`w-5 h-5 sm:w-6 sm:h-6 transition-transform ${isRed && isMovePressed ? 'translate-x-1' : ''}`} />
+          <span className="text-[9px] font-mono font-bold tracking-wider mt-0.5">
+            {isRed ? 'RIGHT' : 'LOCK'}
           </span>
           {!isRed && (
-            <div className="absolute top-1.5 left-1.5 opacity-60">
-              <Lock className="w-3 h-3 text-neutral-500" />
+            <div className="absolute top-1 left-1 opacity-50">
+              <Lock className="w-2.5 h-2.5 text-neutral-500" />
             </div>
           )}
         </div>
       </div>
 
-      {/* CENTER: Safe Minimalist Restart Button */}
-      <div className="pointer-events-auto pb-2">
-        <button
-          id="touch-btn-reset"
-          onClick={onReset}
-          className="w-11 h-11 rounded-2xl bg-[#090b14]/80 border border-white/15 text-neutral-300 hover:text-white flex items-center justify-center active:scale-90 transition backdrop-blur-md shadow-lg cursor-pointer"
-          title="Restart Chamber"
-          aria-label="Restart Chamber"
-        >
-          <RotateCcw className="w-4 h-4" />
-        </button>
-      </div>
-
-      {/* BOTTOM RIGHT: Large High-Tactile Jump Button */}
-      <div className="pointer-events-auto">
-        <button
+      {/* BOTTOM RIGHT: Compact High-Tactile Jump Button */}
+      <div
+        ref={jumpButtonRef}
+        id="touch-btn-jump-container"
+        onTouchStart={handleJumpTouchStart}
+        onTouchEnd={handleJumpTouchEnd}
+        onTouchCancel={handleJumpTouchEnd}
+        onMouseDown={() => {
+          setIsJumpPressed(true);
+          onJumpPress(true);
+        }}
+        onMouseUp={() => {
+          setIsJumpPressed(false);
+          onJumpPress(false);
+        }}
+        onMouseLeave={() => {
+          setIsJumpPressed(false);
+          onJumpPress(false);
+        }}
+        className="pointer-events-auto p-1 cursor-pointer"
+      >
+        <div
           id="touch-btn-jump"
-          onTouchStart={handleJumpTouchStart}
-          onTouchEnd={handleJumpTouchEnd}
-          onTouchCancel={handleJumpTouchEnd}
-          onMouseDown={() => {
-            setIsJumpPressed(true);
-            onJumpPress(true);
-          }}
-          onMouseUp={() => {
-            setIsJumpPressed(false);
-            onJumpPress(false);
-          }}
-          onMouseLeave={() => {
-            setIsJumpPressed(false);
-            onJumpPress(false);
-          }}
-          className={`w-20 h-20 sm:w-22 sm:h-22 rounded-full flex flex-col items-center justify-center border-2 transition-all duration-150 backdrop-blur-xl shadow-2xl cursor-pointer ${
+          className={`w-16 h-16 sm:w-18 sm:h-18 rounded-full flex flex-col items-center justify-center border transition-all duration-100 backdrop-blur-xl shadow-xl ${
             isJumpPressed
-              ? 'scale-90 bg-white/35 border-white text-white shadow-[0_0_35px_rgba(255,255,255,0.7)] ring-4 ring-white/20'
-              : 'bg-gradient-to-tr from-white/15 via-[#0d101c]/80 to-white/20 border-white/60 text-white shadow-[0_0_20px_rgba(255,255,255,0.25)]'
+              ? 'scale-90 bg-white/35 border-white text-white shadow-[0_0_25px_rgba(255,255,255,0.7)] ring-2 ring-white/30'
+              : 'bg-[#090b14]/90 border-white/40 text-white shadow-[0_0_12px_rgba(255,255,255,0.15)] active:scale-95'
           }`}
           aria-label="Jump"
         >
-          <ArrowUp className={`w-8 h-8 sm:w-9 sm:h-9 transition-transform ${isJumpPressed ? '-translate-y-1' : ''}`} />
-          <span className="text-[11px] font-display font-black tracking-widest text-white drop-shadow">
+          <ArrowUp className={`w-6 h-6 sm:w-7 sm:h-7 transition-transform ${isJumpPressed ? '-translate-y-0.5' : ''}`} />
+          <span className="text-[9px] font-display font-black tracking-widest text-white drop-shadow">
             JUMP
           </span>
-        </button>
+        </div>
       </div>
     </div>
   );

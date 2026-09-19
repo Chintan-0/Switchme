@@ -266,8 +266,8 @@ export class GameEngine {
     const isPortrait = viewportW < viewportH;
     const isMobileViewport = viewportW < 768 || isPortrait;
 
-    const padTop = isMobileViewport ? 68 : this.padTop;
-    const padBottom = isMobileViewport ? 120 : this.padBottom;
+    const padTop = isMobileViewport ? 52 : this.padTop;
+    const padBottom = isMobileViewport ? 95 : this.padBottom;
     const padLeft = isMobileViewport ? 20 : this.padLeft;
     const padRight = isMobileViewport ? 20 : this.padRight;
 
@@ -974,8 +974,8 @@ export class GameEngine {
     const isPortrait = viewportW < viewportH;
     const isMobileViewport = viewportW < 768 || isPortrait;
 
-    const padTop = isMobileViewport ? 68 : this.padTop;
-    const padBottom = isMobileViewport ? 120 : this.padBottom;
+    const padTop = isMobileViewport ? 52 : this.padTop;
+    const padBottom = isMobileViewport ? 95 : this.padBottom;
     const padLeft = isMobileViewport ? 20 : this.padLeft;
     const padRight = isMobileViewport ? 20 : this.padRight;
 
@@ -1050,8 +1050,8 @@ export class GameEngine {
     const viewportH = canvasH / dpr;
     const isPortrait = viewportW < viewportH;
     const isMobileViewport = viewportW < 768 || isPortrait;
-    const padTop = isMobileViewport ? 68 : this.padTop;
-    const padBottom = isMobileViewport ? 120 : this.padBottom;
+    const padTop = isMobileViewport ? 52 : this.padTop;
+    const padBottom = isMobileViewport ? 95 : this.padBottom;
 
     // Parallax Scrolling Background with Dynamic Color-Hue Feedback Loop
     this.renderParallaxBackground(ctx, viewportW, viewportH, canvasW, canvasH, dpr);
@@ -1451,50 +1451,95 @@ export class GameEngine {
   private renderLevelHints(ctx: CanvasRenderingContext2D) {
     if (!this.level.hints || this.level.hints.length === 0) return;
 
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const viewportW = this.canvas.width / dpr;
+    const viewportH = this.canvas.height / dpr;
+    const isMobile = viewportW < 768 || viewportW < viewportH;
+
     ctx.save();
     ctx.textAlign = 'center';
 
     for (const hint of this.level.hints) {
-      ctx.font = '600 13px "Chakra Petch", monospace';
-      const mainMetrics = ctx.measureText(hint.text);
-      let badgeWidth = Math.max(120, mainMetrics.width + 32);
+      // Determine adapted text and subtext for mobile vs desktop
+      let text = hint.text;
+      let subtext = hint.subtext;
 
-      if (hint.subtext) {
-        ctx.font = '500 10px "Plus Jakarta Sans", sans-serif';
-        const subMetrics = ctx.measureText(hint.subtext);
-        badgeWidth = Math.max(badgeWidth, subMetrics.width + 28);
+      if (isMobile) {
+        if (hint.direction === 'jump' || hint.text === 'SPACE') {
+          text = 'JUMP ↑';
+          subtext = undefined;
+        } else if (hint.text === 'MOVE RIGHT') {
+          text = 'MOVE RIGHT →';
+          subtext = undefined;
+        } else if (hint.text === 'BLUE') {
+          text = 'BLUE ←';
+          subtext = undefined;
+        } else if (hint.text === 'COLOR SWITCH') {
+          text = 'COLOR SWITCH';
+          subtext = 'REVERSE';
+        } else if (hint.text === 'REACH THE EXIT') {
+          text = 'EXIT 🏁';
+          subtext = undefined;
+        } else if (subtext && (subtext.includes('Press') || subtext.includes('Enter'))) {
+          subtext = undefined;
+        }
       }
 
-      const badgeHeight = hint.subtext ? 40 : 26;
+      // Contextual auto-fade: smoothly fade out after player passes that section
+      let alpha = 1.0;
+      if (hint.direction === 'right' || text.includes('RIGHT') || text.includes('JUMP')) {
+        if (this.player.x > hint.x + 35) {
+          alpha = Math.max(0, 1 - (this.player.x - (hint.x + 35)) / 90);
+        }
+      } else if (hint.direction === 'left' || text.includes('BLUE')) {
+        if (this.player.x < hint.x - 35) {
+          alpha = Math.max(0, 1 - ((hint.x - 35) - this.player.x) / 90);
+        }
+      }
+
+      if (alpha <= 0.02) continue;
+
+      const fontSize = isMobile ? 11 : 13;
+      ctx.font = `600 ${fontSize}px "Chakra Petch", monospace`;
+      const mainMetrics = ctx.measureText(text);
+      let badgeWidth = Math.max(isMobile ? 70 : 100, mainMetrics.width + (isMobile ? 16 : 24));
+
+      if (subtext) {
+        ctx.font = `500 ${isMobile ? 8 : 10}px "Plus Jakarta Sans", sans-serif`;
+        const subMetrics = ctx.measureText(subtext);
+        badgeWidth = Math.max(badgeWidth, subMetrics.width + (isMobile ? 16 : 24));
+      }
+
+      const badgeHeight = subtext ? (isMobile ? 28 : 36) : (isMobile ? 20 : 24);
       const bx = hint.x - badgeWidth / 2;
       const by = hint.y - badgeHeight / 2;
 
-      // Glow pill background with semi-opaque fill to ensure crisp legibility
-      ctx.fillStyle = 'rgba(10, 12, 22, 0.88)';
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
+      // Semi-transparent dark pill background
+      ctx.fillStyle = `rgba(9, 11, 20, ${0.78 * alpha})`;
+      ctx.strokeStyle = `rgba(255, 255, 255, ${0.18 * alpha})`;
       ctx.lineWidth = 1;
 
       ctx.beginPath();
-      ctx.roundRect(bx, by, badgeWidth, badgeHeight, 6);
+      ctx.roundRect(bx, by, badgeWidth, badgeHeight, 5);
       ctx.fill();
       ctx.stroke();
 
-      // Hint main text
-      ctx.font = '600 13px "Chakra Petch", monospace';
-      if (hint.direction === 'right') {
-        ctx.fillStyle = '#ff3366';
-      } else if (hint.direction === 'left') {
-        ctx.fillStyle = '#00d4ff';
+      // Text color based on direction
+      if (hint.direction === 'right' || text.includes('RIGHT')) {
+        ctx.fillStyle = `rgba(255, 51, 102, ${alpha})`;
+      } else if (hint.direction === 'left' || text.includes('LEFT') || text.includes('BLUE')) {
+        ctx.fillStyle = `rgba(0, 212, 255, ${alpha})`;
       } else {
-        ctx.fillStyle = '#ffffff';
+        ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
       }
 
-      ctx.fillText(hint.text, hint.x, hint.y + (hint.subtext ? -3 : 5));
+      ctx.font = `700 ${fontSize}px "Chakra Petch", monospace`;
+      ctx.fillText(text, hint.x, hint.y + (subtext ? -2 : (isMobile ? 3.5 : 4.5)));
 
-      if (hint.subtext) {
-        ctx.font = '500 10px "Plus Jakarta Sans", sans-serif';
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
-        ctx.fillText(hint.subtext, hint.x, hint.y + 13);
+      if (subtext) {
+        ctx.font = `500 ${isMobile ? 8 : 10}px "Plus Jakarta Sans", sans-serif`;
+        ctx.fillStyle = `rgba(255, 255, 255, ${0.65 * alpha})`;
+        ctx.fillText(subtext, hint.x, hint.y + (isMobile ? 9 : 11));
       }
     }
     ctx.restore();

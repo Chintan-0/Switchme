@@ -252,7 +252,6 @@ export default function App() {
             engineRef.current.setTouchJump(pressed);
           }
         }}
-        onReset={handleReplay}
       />
 
       {/* Step 12: Level Complete Modal */}
