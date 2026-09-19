@@ -41,7 +41,7 @@ export const LevelCompleteModal: React.FC<LevelCompleteModalProps> = ({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95 }}
           transition={{ type: 'spring', damping: 22, stiffness: 260 }}
-          className="w-full max-w-sm rounded-2xl border border-white/20 bg-[#0d0f18] p-7 shadow-2xl text-center relative overflow-hidden"
+          className="w-full max-w-sm max-h-[92dvh] overflow-y-auto rounded-2xl border border-white/20 bg-[#0d0f18] p-5 sm:p-7 shadow-2xl text-center relative"
         >
           {/* Neon accent corner glows */}
           <div className="absolute -top-16 -left-16 w-32 h-32 bg-[#ff3366]/20 rounded-full blur-2xl pointer-events-none" />

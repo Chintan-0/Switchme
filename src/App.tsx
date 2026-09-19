@@ -168,7 +168,7 @@ export default function App() {
     engineRef.current = engine;
     engine.start();
 
-    // ResizeObserver
+    // ResizeObserver, visualViewport, and orientationchange listeners
     const resizeObserver = new ResizeObserver(() => {
       updateCanvasSize();
     });
@@ -177,8 +177,23 @@ export default function App() {
       resizeObserver.observe(containerRef.current);
     }
 
+    const handleOrientationChange = () => {
+      setTimeout(updateCanvasSize, 50);
+    };
+
+    window.addEventListener('orientationchange', handleOrientationChange);
+    window.addEventListener('resize', updateCanvasSize);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', updateCanvasSize);
+    }
+
     return () => {
       resizeObserver.disconnect();
+      window.removeEventListener('orientationchange', handleOrientationChange);
+      window.removeEventListener('resize', updateCanvasSize);
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', updateCanvasSize);
+      }
       engine.stop();
       engine.unbindEvents();
     };
@@ -202,7 +217,7 @@ export default function App() {
     <div
       ref={containerRef}
       id="switchme-app-root"
-      className="relative w-screen h-screen bg-[#07080d] overflow-hidden flex flex-col items-center justify-center select-none"
+      className="fixed inset-0 w-full h-full min-h-[100dvh] max-h-[100dvh] bg-[#07080d] overflow-hidden flex flex-col items-center justify-center select-none touch-none overscroll-none"
     >
       {/* Heads-up Display Header */}
       <GameHUD

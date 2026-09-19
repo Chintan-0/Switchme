@@ -54,6 +54,7 @@ export class GameEngine {
   private readonly padBottom = 38;
   private readonly padLeft = 40;
   private readonly padRight = 40;
+  private cameraLookahead = 60; // Directional lookahead smoothly lerped on color switch
   private shakeTimer = 0;
   private shakeIntensity = 0;
 
@@ -262,6 +263,13 @@ export class GameEngine {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const viewportW = Math.max(320, this.canvas.width / dpr);
     const viewportH = Math.max(240, this.canvas.height / dpr);
+    const isPortrait = viewportW < viewportH;
+    const isMobileViewport = viewportW < 768 || isPortrait;
+
+    const padTop = isMobileViewport ? 68 : this.padTop;
+    const padBottom = isMobileViewport ? 120 : this.padBottom;
+    const padLeft = isMobileViewport ? 20 : this.padLeft;
+    const padRight = isMobileViewport ? 20 : this.padRight;
 
     const levelMinX = this.level.bounds.minX;
     const levelMaxX = this.level.bounds.maxX;
@@ -270,8 +278,8 @@ export class GameEngine {
     const levelW = Math.max(100, levelMaxX - levelMinX);
     const levelH = Math.max(100, levelMaxY - levelMinY);
 
-    const availW = Math.max(100, viewportW - (this.padLeft + this.padRight));
-    const availH = Math.max(100, viewportH - (this.padTop + this.padBottom));
+    const availW = Math.max(100, viewportW - (padLeft + padRight));
+    const availH = Math.max(100, viewportH - (padTop + padBottom));
 
     const fitScale = Math.min(availW / levelW, availH / levelH);
     const cappedFitScale = Math.min(fitScale, 1.45);
@@ -279,17 +287,21 @@ export class GameEngine {
     const levelCenterX = (levelMinX + levelMaxX) / 2;
     const levelCenterY = (levelMinY + levelMaxY) / 2;
 
-    if (this.camera.mode === 'FIT') {
+    const shouldUseFollow = this.camera.mode === 'FOLLOW' || (isMobileViewport && cappedFitScale < 0.72);
+    this.cameraLookahead = this.player.facing * (isMobileViewport ? 80 : 60);
+
+    if (!shouldUseFollow) {
       this.camera.targetScale = cappedFitScale;
       this.camera.targetX = levelCenterX;
       this.camera.targetY = levelCenterY;
     } else {
-      const followScale = Math.min(Math.max(cappedFitScale * 1.35, 1.05), 1.6);
+      const followScale = isMobileViewport
+        ? Math.max(0.78, Math.min(1.25, cappedFitScale * 1.65))
+        : Math.min(Math.max(cappedFitScale * 1.35, 1.05), 1.6);
       this.camera.targetScale = followScale;
 
-      const lookahead = this.player.facing * 60;
-      let tx = this.player.x + this.player.width / 2 + lookahead;
-      let ty = this.player.y + this.player.height / 2;
+      let tx = this.player.x + this.player.width / 2 + this.cameraLookahead;
+      let ty = this.player.y + this.player.height / 2 - (isPortrait ? 20 : 10);
 
       const halfW = (availW / 2) / followScale;
       const halfH = (availH / 2) / followScale;
@@ -959,6 +971,13 @@ export class GameEngine {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const viewportW = Math.max(320, this.canvas.width / dpr);
     const viewportH = Math.max(240, this.canvas.height / dpr);
+    const isPortrait = viewportW < viewportH;
+    const isMobileViewport = viewportW < 768 || isPortrait;
+
+    const padTop = isMobileViewport ? 68 : this.padTop;
+    const padBottom = isMobileViewport ? 120 : this.padBottom;
+    const padLeft = isMobileViewport ? 20 : this.padLeft;
+    const padRight = isMobileViewport ? 20 : this.padRight;
 
     const levelMinX = this.level.bounds.minX;
     const levelMaxX = this.level.bounds.maxX;
@@ -967,8 +986,8 @@ export class GameEngine {
     const levelW = Math.max(100, levelMaxX - levelMinX);
     const levelH = Math.max(100, levelMaxY - levelMinY);
 
-    const availW = Math.max(100, viewportW - (this.padLeft + this.padRight));
-    const availH = Math.max(100, viewportH - (this.padTop + this.padBottom));
+    const availW = Math.max(100, viewportW - (padLeft + padRight));
+    const availH = Math.max(100, viewportH - (padTop + padBottom));
 
     const fitScale = Math.min(availW / levelW, availH / levelH);
     const cappedFitScale = Math.min(fitScale, 1.45);
@@ -976,17 +995,25 @@ export class GameEngine {
     const levelCenterX = (levelMinX + levelMaxX) / 2;
     const levelCenterY = (levelMinY + levelMaxY) / 2;
 
-    if (this.camera.mode === 'FIT') {
+    const shouldUseFollow = this.camera.mode === 'FOLLOW' || (isMobileViewport && cappedFitScale < 0.72);
+
+    // Directional Lookahead smoothly follows player facing:
+    // RED (facing = 1) -> +75px to +90px; BLUE (facing = -1) -> -75px to -90px.
+    const targetLookahead = this.player.facing * (isMobileViewport ? 80 : 60);
+    this.cameraLookahead += (targetLookahead - this.cameraLookahead) * Math.min(1, 5.5 * dt);
+
+    if (!shouldUseFollow) {
       this.camera.targetScale = cappedFitScale;
       this.camera.targetX = levelCenterX;
       this.camera.targetY = levelCenterY;
     } else {
-      const followScale = Math.min(Math.max(cappedFitScale * 1.35, 1.05), 1.6);
+      const followScale = isMobileViewport
+        ? Math.max(0.78, Math.min(1.25, cappedFitScale * 1.65))
+        : Math.min(Math.max(cappedFitScale * 1.35, 1.05), 1.6);
       this.camera.targetScale = followScale;
 
-      const lookahead = this.player.facing * 60;
-      let tx = this.player.x + this.player.width / 2 + lookahead;
-      let ty = this.player.y + this.player.height / 2;
+      let tx = this.player.x + this.player.width / 2 + this.cameraLookahead;
+      let ty = this.player.y + this.player.height / 2 - (isPortrait ? 20 : 10);
 
       const halfW = (availW / 2) / followScale;
       const halfH = (availH / 2) / followScale;
@@ -1007,7 +1034,7 @@ export class GameEngine {
       this.camera.targetY = ty;
     }
 
-    const factor = Math.min(1, 8 * dt);
+    const factor = Math.min(1, (isMobileViewport ? 6.5 : 8) * dt);
     this.camera.scale += (this.camera.targetScale - this.camera.scale) * factor;
     this.camera.x += (this.camera.targetX - this.camera.x) * factor;
     this.camera.y += (this.camera.targetY - this.camera.y) * factor;
@@ -1021,6 +1048,10 @@ export class GameEngine {
     const canvasH = this.canvas.height;
     const viewportW = canvasW / dpr;
     const viewportH = canvasH / dpr;
+    const isPortrait = viewportW < viewportH;
+    const isMobileViewport = viewportW < 768 || isPortrait;
+    const padTop = isMobileViewport ? 68 : this.padTop;
+    const padBottom = isMobileViewport ? 120 : this.padBottom;
 
     // Parallax Scrolling Background with Dynamic Color-Hue Feedback Loop
     this.renderParallaxBackground(ctx, viewportW, viewportH, canvasW, canvasH, dpr);
@@ -1035,7 +1066,7 @@ export class GameEngine {
       shakeY = (Math.random() - 0.5) * this.shakeIntensity;
     }
 
-    const midY = (viewportH + this.padTop - this.padBottom) / 2;
+    const midY = (viewportH + padTop - padBottom) / 2;
     ctx.translate(Math.round(viewportW / 2 + shakeX), Math.round(midY + shakeY));
     ctx.scale(this.camera.scale, this.camera.scale);
     ctx.translate(-Math.round(this.camera.x), -Math.round(this.camera.y));

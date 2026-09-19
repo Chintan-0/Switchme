@@ -1,13 +1,46 @@
 @import "tailwindcss";
 
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+}
+
 @layer base {
-  body {
+  html, body {
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    touch-action: manipulation;
+    overscroll-behavior: none;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    height: 100%;
+    height: 100dvh;
+    overflow: hidden;
   }
 }
 
 .font-display {
   font-family: 'Chakra Petch', system-ui, sans-serif;
+}
+
+/* Safe Area Inset Helpers */
+.pt-safe {
+  padding-top: max(12px, env(safe-area-inset-top, 0px));
+}
+
+.pb-safe {
+  padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+}
+
+.pl-safe {
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+}
+
+.pr-safe {
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
 
 /* Custom Neon Glow Utilities */
@@ -28,4 +61,6 @@ canvas {
   image-rendering: -webkit-optimize-contrast;
   image-rendering: crisp-edges;
   image-rendering: pixelated;
+  touch-action: none;
 }
+
